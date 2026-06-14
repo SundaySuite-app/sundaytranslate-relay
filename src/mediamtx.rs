@@ -4,9 +4,11 @@
 //! off every other protocol. Audio is Opus, one publisher per path, many WHEP
 //! subscribers — exactly the one-to-many interpretation shape.
 //!
-//! ⚠️ mediamtx's config schema (esp. the auth block) shifts between versions.
-//! This targets mediamtx v1.x. Confirm against the bundled binary at rig test
-//! and adjust [`MediamtxConfig::render`] if keys differ.
+//! Verified: this config loads cleanly on mediamtx **v1.9.3** ("configuration
+//! loaded" + "[WebRTC] listener opened"). The auth block uses `authInternalUsers`
+//! (mediamtx v1.x); clients authenticate WHIP publish with HTTP **Basic** (user
+//! `publish`), NOT a Bearer token. Re-confirm the schema if you bump the pinned
+//! mediamtx version in `scripts/fetch-mediamtx.sh`.
 
 use anyhow::Result;
 use std::path::{Path, PathBuf};

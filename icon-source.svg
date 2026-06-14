@@ -1,0 +1,40 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#17272d"/>
+      <stop offset="1" stop-color="#0b1115"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.56" cy="0.5" r="0.6">
+      <stop offset="0" stop-color="#2bb3c0" stop-opacity="0.36"/>
+      <stop offset="0.55" stop-color="#2bb3c0" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#2bb3c0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="teal" x1="470" y1="700" x2="890" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#67dbe5"/>
+      <stop offset="1" stop-color="#1f97a4"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="470" y1="700" x2="760" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f4d27a"/>
+      <stop offset="1" stop-color="#d4a73a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded app tile (transparent corners → macOS squircle) -->
+  <rect x="40" y="40" width="944" height="944" rx="220" fill="url(#bg)"/>
+  <rect x="40" y="40" width="944" height="944" rx="220" fill="url(#glow)"/>
+  <rect x="41.5" y="41.5" width="941" height="941" rx="218.5" stroke="#ffffff" stroke-opacity="0.06" stroke-width="3"/>
+
+  <!-- a source node radiating waves diagonally (local broadcast), the suite's
+       golden thread woven in among the teal waves. -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M470 700 A170 170 0 0 1 640 530" stroke="url(#teal)" stroke-width="50" stroke-opacity="0.96"/>
+    <path d="M470 700 A245 245 0 0 1 715 455" stroke="url(#gold)" stroke-width="46"/>
+    <path d="M470 700 A330 330 0 0 1 800 370" stroke="url(#teal)" stroke-width="42" stroke-opacity="0.58"/>
+    <path d="M470 700 A420 420 0 0 1 890 280" stroke="url(#teal)" stroke-width="36" stroke-opacity="0.30"/>
+  </g>
+
+  <!-- the node -->
+  <circle cx="470" cy="700" r="78" fill="url(#teal)"/>
+  <circle cx="470" cy="700" r="78" stroke="#d7f2f5" stroke-opacity="0.55" stroke-width="4"/>
+  <circle cx="470" cy="700" r="29" fill="#061a1d" fill-opacity="0.6"/>
+</svg>

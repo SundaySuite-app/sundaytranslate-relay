@@ -71,7 +71,11 @@ registers the relay on the session.
 - **Cloud `POST /api/relay/enroll`** broker (DNS A-record + cert). Simplest first
   cut: return a pre-provisioned `*.local.sundaysuite.app` wildcard cert stored as
   a Worker secret (avoids per-device ACME). See the plan's "open questions".
-- **mediamtx auth wire-format**: confirm WHIP publish auth against the bundled
-  mediamtx version (the web client sends `Authorization: Bearer <secret>`).
+- **mediamtx**: config schema **verified loading on v1.9.3** (`scripts/fetch-mediamtx.sh`).
+  WHIP publish auth uses HTTP **Basic** (user `publish`), not Bearer — the web
+  client was corrected (`sundaytranslate` PR #3). Still to confirm at rig: that
+  publish auth is actually *enforced* with a real SDP offer, and cross-origin
+  **CORS** (page on `translate.sundaysuite.app` → relay on `*.local…`) — mediamtx
+  may need `Access-Control-Allow-Headers` to permit `Authorization` on preflight.
 - **Tauri UI shell**: Start/Stop, status, QR; reuse SundayRec's sidecar bundling
   + updater + Apple signing.
