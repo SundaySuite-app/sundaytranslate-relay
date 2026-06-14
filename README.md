@@ -8,10 +8,12 @@ never leaves the building. Cloudflare's SFU stays the automatic fallback for
 listeners on 4G or when no relay is running (handled in the web app, which
 dual-publishes).
 
-> **Status:** core engine (this crate) — `cargo check` green. **mediamtx binary
-> + Tauri UI shell + rig-test are pending.** The WHIP/WHEP audio path is
-> implemented in the web app behind a feature gate (`sundaytranslate` PR #3) but
-> is **not yet verified against a live mediamtx**.
+> **Status:** engine (`src/`) + **Tauri desktop shell** (`src-tauri/` + `ui/`) +
+> **cloud enroll broker** (`sundaytranslate` PR #3) — all compile (`cargo check
+> --workspace` green, 3 engine tests). **Pending:** fetch the mediamtx binary,
+> provision the broker secrets, and **rig-test** against a live mediamtx + phones.
+> The WHIP/WHEP audio path (web app, `sundaytranslate` PR #3) is implemented but
+> **not yet verified against a live mediamtx**.
 
 ## Why a local cert (the linchpin)
 The web app loads over `https://translate.sundaysuite.app`, so the browser's
@@ -43,6 +45,18 @@ cargo run                        # enroll → start mediamtx → register → Ct
 ```
 All config is env (see `src/main.rs`). The session id/secret come from the
 operator's staff URL (`/o/<id>?...#<secret>`).
+
+## Desktop app (Tauri)
+```bash
+./scripts/fetch-mediamtx.sh   # SFU binary → ./binaries/
+npm install                   # @tauri-apps/cli
+npm run dev                   # tauri dev — paste pairing code + operator link, Start
+npm run build                 # bundled app (needs signing for distribution)
+```
+The shell (`src-tauri/` Rust commands `start_relay`/`stop_relay`/`relay_status`
+over `relay_core`; `ui/index.html` frontend) is a thin wrapper: paste the
+pairing code + operator link, hit **Start**, and it enrolls → starts mediamtx →
+registers the relay on the session.
 
 ## Rig-test (the real verification — needs 2 phones on one wifi)
 1. Fetch mediamtx; start a SundayTranslate session; run the relay with that

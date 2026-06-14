@@ -1,4 +1,7 @@
 /target
+/node_modules
+/src-tauri/target
+/src-tauri/gen
 # mediamtx is fetched per-platform, not committed
 /binaries/*
 !/binaries/.gitkeep

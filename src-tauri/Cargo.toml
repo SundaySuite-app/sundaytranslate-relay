@@ -1,0 +1,26 @@
+[package]
+name = "sundaytranslate-relay-app"
+version = "0.1.0"
+edition = "2021"
+description = "SundayTranslate Relay — desktop UI shell over the relay engine."
+license = "MIT"
+
+[lib]
+name = "relay_app_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "sundaytranslate-relay-app"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# The relay engine (this repo's root crate, lib name `relay_core`).
+sundaytranslate-relay = { path = ".." }
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["sync"] }
+anyhow = "1"

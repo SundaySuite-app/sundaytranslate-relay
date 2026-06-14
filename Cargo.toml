@@ -1,3 +1,6 @@
+[workspace]
+members = ["src-tauri"]
+
 [package]
 name = "sundaytranslate-relay"
 version = "0.1.0"
