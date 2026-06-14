@@ -73,9 +73,12 @@ registers the relay on the session.
   a Worker secret (avoids per-device ACME). See the plan's "open questions".
 - **mediamtx**: config schema **verified loading on v1.9.3** (`scripts/fetch-mediamtx.sh`).
   WHIP publish auth uses HTTP **Basic** (user `publish`), not Bearer — the web
-  client was corrected (`sundaytranslate` PR #3). Still to confirm at rig: that
-  publish auth is actually *enforced* with a real SDP offer, and cross-origin
-  **CORS** (page on `translate.sundaysuite.app` → relay on `*.local…`) — mediamtx
-  may need `Access-Control-Allow-Headers` to permit `Authorization` on preflight.
+  client was corrected (`sundaytranslate` PR #3). Cross-origin **CORS verified**:
+  mediamtx v1.9.3 returns `access-control-allow-origin: *` and
+  `access-control-allow-headers: Authorization, Content-Type, If-Match` on the
+  WHIP/WHEP preflight — so the page on `translate.sundaysuite.app` can call the
+  relay on `*.local…` with Basic auth, no extra config. Still to confirm at rig:
+  that publish auth is actually *enforced* with a real SDP offer (curl with an
+  invalid SDP returns 400 regardless, masking the auth result).
 - **Tauri UI shell**: Start/Stop, status, QR; reuse SundayRec's sidecar bundling
   + updater + Apple signing.
