@@ -1,0 +1,7 @@
+/target
+# mediamtx is fetched per-platform, not committed
+/binaries/*
+!/binaries/.gitkeep
+# runtime cert/key/config
+/.relay-data
+*.pem

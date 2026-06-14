@@ -1,0 +1,23 @@
+[package]
+name = "sundaytranslate-relay"
+version = "0.1.0"
+edition = "2021"
+description = "On-LAN audio relay for SundayTranslate — bundles mediamtx (WHIP/WHEP) so interpretation audio stays on the church wifi, with Cloudflare SFU as fallback."
+license = "MIT"
+
+# A library (reused by the Tauri UI shell later) + a headless binary.
+[lib]
+name = "relay_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sundaytranslate-relay"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "signal", "time", "fs", "io-util", "sync"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+local-ip-address = "0.6"
