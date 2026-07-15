@@ -1,0 +1,23 @@
+# CI — compile-and-test gate for the Tauri relay (Rust). There is no JS
+# test surface (package.json only wraps the tauri CLI), so the Rust build
+# is the meaningful check.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
