@@ -8,10 +8,10 @@
 //!   RELAY_HTTPS_PORT      default 8889
 //!   RELAY_DATA_DIR        default ./.relay-data   (cert/key/config land here)
 //!   RELAY_MEDIAMTX_BIN    default ./binaries/mediamtx
-//!   RELAY_SLUG            default derived from hostname
+//!   RELAY_SLUG            default: random once, then persisted in RELAY_DATA_DIR
 
 use anyhow::{Context, Result};
-use relay_core::{enroll, lan, mediamtx, register, supervise};
+use relay_core::{enroll, lan, mediamtx, register, slug, supervise};
 use std::path::PathBuf;
 use tokio::sync::watch;
 
@@ -33,7 +33,11 @@ async fn main() -> Result<()> {
         .context("RELAY_HTTPS_PORT must be a port number")?;
     let data_dir = PathBuf::from(env_or("RELAY_DATA_DIR", "./.relay-data"));
     let mediamtx_bin = PathBuf::from(env_or("RELAY_MEDIAMTX_BIN", "./binaries/mediamtx"));
-    let slug = env("RELAY_SLUG").unwrap_or_else(stable_slug);
+
+    // 0. Data dir + this installation's slug (persisted, so the same DNS host
+    //    and cert are reused across restarts).
+    tokio::fs::create_dir_all(&data_dir).await?;
+    let slug = slug::load_or_create(&data_dir)?;
 
     // 1. LAN IP.
     let ip = lan::detect_lan_ipv4()?;
@@ -45,7 +49,6 @@ async fn main() -> Result<()> {
     eprintln!("[relay] host {} (cert expires {})", e.host, e.expires_at);
 
     // 3. Render config + lay down cert/key/config.
-    tokio::fs::create_dir_all(&data_dir).await?;
     let cert_path = data_dir.join("cert.pem").to_string_lossy().into_owned();
     let key_path = data_dir.join("key.pem").to_string_lossy().into_owned();
     let cfg = mediamtx::MediamtxConfig {
@@ -81,19 +84,4 @@ async fn main() -> Result<()> {
     let _ = register::set_session_relay(&cloud, &session_id, &session_secret, None, None).await;
     let _ = supervisor.await;
     Ok(())
-}
-
-/// A short, stable per-machine slug so the same DNS host/cert is reused across
-/// restarts (FNV-1a of the hostname). The Tauri shell will persist a real uuid.
-fn stable_slug() -> String {
-    let host = std::env::var("HOSTNAME")
-        .ok()
-        .or_else(|| std::env::var("COMPUTERNAME").ok())
-        .unwrap_or_else(|| "relay".to_string());
-    let mut h: u64 = 0xcbf29ce484222325;
-    for b in host.as_bytes() {
-        h ^= *b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    format!("r-{:06x}", h & 0xff_ffff)
 }
