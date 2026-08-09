@@ -258,17 +258,34 @@ fn relay_status(state: tauri::State<'_, AppState>) -> StatusOut {
 /// Locate the mediamtx binary: env override, then the bundled sidecar, then the
 /// dev `./binaries/mediamtx`.
 fn resolve_mediamtx(app: &tauri::AppHandle) -> PathBuf {
+    // 1. Explicit override — dev + the test harness.
     if let Ok(p) = std::env::var("RELAY_MEDIAMTX_BIN") {
         if !p.is_empty() {
             return PathBuf::from(p);
         }
     }
+    // 2. externalBin sidecar (the packaged path). Tauri copies the sidecar next
+    //    to the app's OWN executable — `Contents/MacOS/mediamtx` on macOS — with
+    //    the target-triple suffix stripped. This is the branch a Finder-launched
+    //    .app actually takes; the old build declared no sidecar, so this file
+    //    never existed and the app fell through to the dev path below (CWD `/`).
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let p = dir.join("mediamtx");
+            if p.exists() {
+                return p;
+            }
+        }
+    }
+    // 3. Belt-and-braces: a resources-style layout, should the bundling ever
+    //    change to drop it under Contents/Resources instead.
     if let Ok(dir) = app.path().resource_dir() {
         let p = dir.join("binaries").join("mediamtx");
         if p.exists() {
             return p;
         }
     }
+    // 4. Dev clone: `npm run tauri dev` from the repo, with ./binaries populated.
     PathBuf::from("./binaries/mediamtx")
 }
 

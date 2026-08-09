@@ -29,4 +29,22 @@ mkdir -p binaries
 mv "$tmp/mediamtx" binaries/mediamtx
 chmod +x binaries/mediamtx
 rm -rf "$tmp"
-echo "✓ binaries/mediamtx ($("./binaries/mediamtx" --version 2>/dev/null || echo "$VERSION"))"
+
+# Tauri's externalBin resolves `binaries/mediamtx-<target-triple>` at BUILD time
+# (the bundle would fail without it). The plain `binaries/mediamtx` above is what
+# `tauri dev`, the tests and the resolve fallback use; this triple-named copy is
+# what `tauri build` actually bundles into the .app. Prefer rustc's own host
+# triple; fall back to constructing it from os/arch.
+triple="$(rustc -vV 2>/dev/null | awk '/^host:/{print $2}')"
+if [ -z "$triple" ]; then
+  case "$plat-$a" in
+    darwin-arm64) triple="aarch64-apple-darwin" ;;
+    darwin-amd64) triple="x86_64-apple-darwin" ;;
+    linux-arm64)  triple="aarch64-unknown-linux-gnu" ;;
+    linux-amd64)  triple="x86_64-unknown-linux-gnu" ;;
+    *) echo "could not determine target triple for $plat-$a — install rustc"; exit 1 ;;
+  esac
+fi
+cp binaries/mediamtx "binaries/mediamtx-${triple}"
+chmod +x "binaries/mediamtx-${triple}"
+echo "✓ binaries/mediamtx + binaries/mediamtx-${triple} ($("./binaries/mediamtx" --version 2>/dev/null || echo "$VERSION"))"
