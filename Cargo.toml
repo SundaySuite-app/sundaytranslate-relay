@@ -3,7 +3,7 @@ members = ["src-tauri"]
 
 [package]
 name = "sundaytranslate-relay"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "On-LAN audio relay for SundayTranslate — bundles mediamtx (WHIP/WHEP) so interpretation audio stays on the church wifi, with Cloudflare SFU as fallback."
 license = "MIT"

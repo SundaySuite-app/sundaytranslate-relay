@@ -24,6 +24,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: .
+      # The mediamtx sidecar is now a real build input: tauri-build validates the
+      # externalBin path while compiling the src-tauri crate, so even `cargo
+      # clippy`/`test` fail without it. Fetch it (Linux host triple) before any
+      # cargo command touches src-tauri.
+      - name: Fetch mediamtx sidecar
+        run: ./scripts/fetch-mediamtx.sh
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy

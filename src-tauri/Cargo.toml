@@ -1,6 +1,6 @@
 [package]
 name = "sundaytranslate-relay-app"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "SundayTranslate Relay — desktop UI shell over the relay engine."
 license = "MIT"
