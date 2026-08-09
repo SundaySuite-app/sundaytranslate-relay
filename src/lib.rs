@@ -23,3 +23,6 @@ pub mod lan;
 pub mod mediamtx;
 pub mod register;
 pub mod supervise;
+
+#[cfg(test)]
+mod testing;
