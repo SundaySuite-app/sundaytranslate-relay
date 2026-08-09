@@ -78,8 +78,7 @@ async fn main() -> Result<()> {
     eprintln!("[relay] shutting down …");
     let _ = tx.send(true);
     // Best-effort: clear the registration so listeners fall back to the cloud.
-    let _ =
-        register::set_session_relay(&cloud, &session_id, &session_secret, None, None).await;
+    let _ = register::set_session_relay(&cloud, &session_id, &session_secret, None, None).await;
     let _ = supervisor.await;
     Ok(())
 }
