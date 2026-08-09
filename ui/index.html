@@ -79,6 +79,13 @@
       <div class="kv" id="sessRow" style="display:none"><span>Økt</span><b id="sess"></b></div>
     </div>
 
+    <!--
+      A CSP is set in tauri.conf.json. This inline script is fine: Tauri hashes
+      every non-empty inline <script> at build time and adds the sha256 to
+      script-src (and injects a nonce into <style>). What the CSP *does* rule out
+      is `eval`/`new Function` and inline event-handler attributes (onclick=…),
+      so keep using addEventListener below.
+    -->
     <script>
       const invoke = window.__TAURI__.core.invoke;
       const $ = (id) => document.getElementById(id);
