@@ -22,6 +22,7 @@ pub mod enroll;
 pub mod lan;
 pub mod mediamtx;
 pub mod register;
+pub mod slug;
 pub mod supervise;
 
 #[cfg(test)]
