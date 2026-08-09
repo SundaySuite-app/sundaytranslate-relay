@@ -1,5 +1,6 @@
 /target
 /node_modules
+.DS_Store
 /src-tauri/target
 /src-tauri/gen
 # mediamtx is fetched per-platform, not committed

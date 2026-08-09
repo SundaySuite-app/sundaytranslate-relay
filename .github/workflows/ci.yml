@@ -1,6 +1,10 @@
-# CI — compile-and-test gate for the Tauri relay (Rust). There is no JS
-# test surface (package.json only wraps the tauri CLI), so the Rust build
-# is the meaningful check.
+# CI — format, lint and test gate for the Tauri relay (Rust). There is no JS
+# test surface (package.json only wraps the tauri CLI), so the Rust checks are
+# the meaningful gate.
+#
+# NOTE: the workspace root is the repo root (`src-tauri` is a *member*, not a
+# workspace of its own), so every command runs workspace-wide from `.`. Testing
+# only `src-tauri` used to mean testing the one package that has no tests.
 name: ci
 on:
   push:
@@ -19,5 +23,10 @@ jobs:
             libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
+          workspaces: .
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
