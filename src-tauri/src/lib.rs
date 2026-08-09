@@ -38,7 +38,12 @@ struct StatusOut {
 
 impl StatusOut {
     fn idle() -> Self {
-        Self { running: false, host: None, relay_url: None, session_id: None }
+        Self {
+            running: false,
+            host: None,
+            relay_url: None,
+            session_id: None,
+        }
     }
 }
 
@@ -76,7 +81,9 @@ async fn start_relay(
         .map_err(|e| e.to_string())?;
 
     // 3. Render config + lay down cert/key/config.
-    tokio::fs::create_dir_all(&data_dir).await.map_err(|e| e.to_string())?;
+    tokio::fs::create_dir_all(&data_dir)
+        .await
+        .map_err(|e| e.to_string())?;
     let cert_path = data_dir.join("cert.pem").to_string_lossy().into_owned();
     let key_path = data_dir.join("key.pem").to_string_lossy().into_owned();
     let cfg = mediamtx::MediamtxConfig {
@@ -186,7 +193,11 @@ fn slug_for_host() -> String {
 pub fn run() {
     tauri::Builder::default()
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![start_relay, stop_relay, relay_status])
+        .invoke_handler(tauri::generate_handler![
+            start_relay,
+            stop_relay,
+            relay_status
+        ])
         .run(tauri::generate_context!())
         .expect("error while running SundayTranslate Relay");
 }
