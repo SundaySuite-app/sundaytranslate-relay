@@ -10,8 +10,42 @@
 //! `publish`), NOT a Bearer token. Re-confirm the schema if you bump the pinned
 //! mediamtx version in `scripts/fetch-mediamtx.sh`.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
+
+/// Quote an arbitrary string as a YAML double-quoted scalar.
+///
+/// Everything we interpolate into the config is attacker- or environment-shaped:
+/// the publish secret comes from a URL fragment, and the cert/key paths come from
+/// the OS app-data dir (which contains the user's home directory, i.e. their
+/// name). Pasted raw, a value containing `:`, `#`, a newline or a leading `*`/`&`
+/// either breaks the parse or injects sibling keys into `authInternalUsers`.
+///
+/// Double-quoted style (rather than single-quoted `''`-doubling) because it is
+/// the only YAML scalar style that round-trips *every* string: single-quoted
+/// scalars fold line breaks into spaces, so a secret containing `\n` would be
+/// silently rewritten into a different password — mediamtx would then reject the
+/// publisher for no visible reason.
+fn yaml_quote(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for ch in value.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            // Any other C0 control (or DEL) as a YAML \xNN escape.
+            c if (c as u32) < 0x20 || c as u32 == 0x7f => {
+                out.push_str(&format!("\\x{:02x}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
 
 pub struct MediamtxConfig {
     /// HTTPS port for WHIP/WHEP/WebRTC (e.g. 8889).
@@ -40,6 +74,7 @@ authInternalUsers:
     permissions:
       - action: publish
 ",
+                secret = yaml_quote(secret),
             ),
             None => String::from(
                 "\
@@ -66,7 +101,7 @@ hls: no
 srt: no
 
 webrtc: yes
-webrtcAddress: :{port}
+webrtcAddress: {address}
 webrtcEncryption: yes
 webrtcServerCert: {cert}
 webrtcServerKey: {key}
@@ -82,29 +117,87 @@ pathDefaults:
 paths:
   all_others:
 ",
-            port = self.https_port,
-            cert = self.cert_path,
-            key = self.key_path,
+            address = yaml_quote(&format!(":{}", self.https_port)),
+            cert = yaml_quote(&self.cert_path),
+            key = yaml_quote(&self.key_path),
             auth = auth,
         )
     }
 }
 
 /// Lay the cert, key and config into `data_dir`; return their paths.
+///
+/// All three files are written `0600` (and `data_dir` itself `0700`): the key is
+/// a TLS private key and the config embeds the session's publish secret in
+/// cleartext, so neither belongs in a world-readable file on a shared church
+/// laptop.
 pub async fn write_files(
     data_dir: &Path,
     cert_pem: &str,
     key_pem: &str,
     cfg: &MediamtxConfig,
 ) -> Result<PathBuf> {
-    tokio::fs::create_dir_all(data_dir).await?;
+    tokio::fs::create_dir_all(data_dir)
+        .await
+        .with_context(|| format!("could not create {}", data_dir.display()))?;
+    restrict_dir(data_dir).await?;
+
     let cert_path = Path::new(&cfg.cert_path);
     let key_path = Path::new(&cfg.key_path);
-    tokio::fs::write(cert_path, cert_pem).await?;
-    tokio::fs::write(key_path, key_pem).await?;
+    write_private(cert_path, cert_pem).await?;
+    write_private(key_path, key_pem).await?;
     let config_path = data_dir.join("mediamtx.yml");
-    tokio::fs::write(&config_path, cfg.render()).await?;
+    write_private(&config_path, &cfg.render()).await?;
     Ok(config_path)
+}
+
+/// Write `contents` to `path` readable only by this user.
+#[cfg(unix)]
+async fn write_private(path: &Path, contents: &str) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    use tokio::io::AsyncWriteExt;
+
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)
+        .await
+        .with_context(|| format!("could not write {}", path.display()))?;
+    file.write_all(contents.as_bytes())
+        .await
+        .with_context(|| format!("could not write {}", path.display()))?;
+    file.flush().await?;
+    // `mode` above only applies when the file is *created*; a file left over
+    // from an older (umask-default) build would keep its loose permissions.
+    tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+        .await
+        .with_context(|| format!("could not restrict permissions on {}", path.display()))?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+async fn write_private(path: &Path, contents: &str) -> Result<()> {
+    // Windows has no umask; files inherit the (already user-scoped) ACL of the
+    // app-data directory. Tightening further would need the winapi ACL calls,
+    // and the relay targets macOS today.
+    tokio::fs::write(path, contents)
+        .await
+        .with_context(|| format!("could not write {}", path.display()))
+}
+
+#[cfg(unix)]
+async fn restrict_dir(dir: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    tokio::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
+        .await
+        .with_context(|| format!("could not restrict permissions on {}", dir.display()))
+}
+
+#[cfg(not(unix))]
+async fn restrict_dir(_dir: &Path) -> Result<()> {
+    Ok(())
 }
 
 #[cfg(test)]
@@ -124,10 +217,10 @@ mod tests {
     fn render_wires_webrtc_https_and_disables_others() {
         let y = cfg(Some("sek")).render();
         assert!(y.contains("webrtc: yes"));
-        assert!(y.contains("webrtcAddress: :8889"));
+        assert!(y.contains(r#"webrtcAddress: ":8889""#));
         assert!(y.contains("webrtcEncryption: yes"));
-        assert!(y.contains("webrtcServerCert: /d/cert.pem"));
-        assert!(y.contains("webrtcServerKey: /d/key.pem"));
+        assert!(y.contains(r#"webrtcServerCert: "/d/cert.pem""#));
+        assert!(y.contains(r#"webrtcServerKey: "/d/key.pem""#));
         assert!(y.contains("rtsp: no") && y.contains("rtmp: no") && y.contains("hls: no"));
     }
 
@@ -135,7 +228,7 @@ mod tests {
     fn with_secret_requires_publish_auth() {
         let y = cfg(Some("topsecret")).render();
         assert!(y.contains("user: publish"));
-        assert!(y.contains("pass: topsecret"));
+        assert!(y.contains(r#"pass: "topsecret""#));
     }
 
     #[test]
@@ -143,5 +236,124 @@ mod tests {
         let y = cfg(None).render();
         assert!(!y.contains("pass:"));
         assert!(y.contains("action: publish"));
+    }
+
+    #[test]
+    fn quote_escapes_every_yaml_indicator() {
+        assert_eq!(yaml_quote("plain"), r#""plain""#);
+        assert_eq!(yaml_quote(r#"say "hi""#), r#""say \"hi\"""#);
+        assert_eq!(yaml_quote(r"back\slash"), r#""back\\slash""#);
+        assert_eq!(yaml_quote("a\nb"), r#""a\nb""#);
+        assert_eq!(yaml_quote("a\tb\r"), r#""a\tb\r""#);
+        assert_eq!(yaml_quote("bell\u{7}"), r#""bell\x07""#);
+        // Indicators that only matter unquoted are left alone inside the quotes.
+        assert_eq!(yaml_quote("*anchor: #x"), r#""*anchor: #x""#);
+    }
+
+    /// The whole point: a hostile secret must stay *one scalar* and never turn
+    /// into extra YAML keys (e.g. granting itself `action: publish` as `any`).
+    #[test]
+    fn hostile_secrets_cannot_escape_the_scalar() {
+        let hostile = [
+            "plain",
+            "with: colon",
+            "with #hash",
+            "with 'quote'",
+            "with \"dquote\"",
+            "*alias",
+            "&anchor",
+            "!!str tag",
+            "  leading space",
+            "trailing space  ",
+            "line1\npermissions:\n      - action: publish\n",
+            "line1\r\n  - user: any\r\n",
+            "back\\slash",
+            "%directive",
+            "- dash",
+            "{flow: map}",
+            "[flow, seq]",
+            "",
+        ];
+        for secret in hostile {
+            let y = cfg(Some(secret)).render();
+            let pass_line = y
+                .lines()
+                .find(|l| l.trim_start().starts_with("pass:"))
+                .expect("rendered config has a pass: line");
+
+            // One line, fully quoted, and nothing of the payload leaked out.
+            assert!(
+                pass_line.trim_start() == format!("pass: {}", yaml_quote(secret)),
+                "secret {secret:?} rendered as {pass_line:?}"
+            );
+            // `any` still only gets `read` — the hostile payload did not graft a
+            // publish permission onto it.
+            let any_block = y
+                .split("- user: publish")
+                .next()
+                .expect("config has a publish user");
+            assert!(
+                !any_block.contains("action: publish"),
+                "secret {secret:?} injected a publish permission for `any`"
+            );
+            // Exactly the two users we wrote. Counted per *line*: the escaped
+            // payload may still contain the text `- user:` inside the quoted
+            // scalar, which is exactly the point — it is no longer a YAML node.
+            let user_lines = y
+                .lines()
+                .filter(|l| l.trim_start().starts_with("- user:"))
+                .count();
+            assert_eq!(user_lines, 2, "secret {secret:?} injected an extra user");
+        }
+    }
+
+    /// macOS app-data paths contain the user's home dir — spaces are guaranteed
+    /// ("Application Support"), and anything else is possible.
+    #[test]
+    fn hostile_paths_are_quoted_too() {
+        let cfg = MediamtxConfig {
+            https_port: 8889,
+            cert_path: "/Users/a b/Library/Application Support/x: y/cert.pem".into(),
+            key_path: "/Users/a b/#weird/key.pem".into(),
+            publish_secret: None,
+        };
+        let y = cfg.render();
+        assert!(y.contains(
+            r#"webrtcServerCert: "/Users/a b/Library/Application Support/x: y/cert.pem""#
+        ));
+        assert!(y.contains(r#"webrtcServerKey: "/Users/a b/#weird/key.pem""#));
+        // Still exactly one line each.
+        assert_eq!(y.matches("webrtcServerCert:").count(), 1);
+        assert_eq!(y.matches("webrtcServerKey:").count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn written_files_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let cert_path = dir.path().join("cert.pem");
+        let key_path = dir.path().join("key.pem");
+
+        // A leftover world-readable key from an older build must be tightened.
+        std::fs::write(&key_path, "old").unwrap();
+        std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        let cfg = MediamtxConfig {
+            https_port: 8889,
+            cert_path: cert_path.to_string_lossy().into_owned(),
+            key_path: key_path.to_string_lossy().into_owned(),
+            publish_secret: Some("s3cret".into()),
+        };
+        let config_path = write_files(dir.path(), "CERT", "KEY", &cfg).await.unwrap();
+
+        for p in [&cert_path, &key_path, &config_path] {
+            let mode = std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "{} is mode {:o}", p.display(), mode);
+        }
+        let dir_mode = std::fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777;
+        assert_eq!(dir_mode, 0o700, "data dir is mode {dir_mode:o}");
+        assert_eq!(std::fs::read_to_string(&key_path).unwrap(), "KEY");
     }
 }

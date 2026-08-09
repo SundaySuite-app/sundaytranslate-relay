@@ -28,3 +28,14 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "si
 # rustls-platform-verifier, instead of bundled webpki roots).
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 local-ip-address = "0.6"
+
+# Only for `kill(pid, SIGTERM)` — tokio's `start_kill` is an unconditional
+# SIGKILL, which gives mediamtx no chance to close its listeners.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+# `net` for the hand-rolled canned HTTP server the enroll/register tests use
+# (a full mock-server crate would be far more dependency for less control).
+tokio = { version = "1", features = ["net", "rt-multi-thread", "macros", "time", "io-util"] }
+tempfile = "3"
