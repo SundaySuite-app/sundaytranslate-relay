@@ -58,6 +58,52 @@ over `relay_core`; `ui/index.html` frontend) is a thin wrapper: paste the
 pairing code + operator link, hit **Start**, and it enrolls → starts mediamtx →
 registers the relay on the session.
 
+## Platforms, and what that means for dependency alerts
+This repo has **no release workflow**. `ci.yml` is the only workflow: one
+`ubuntu-latest` job running `cargo fmt`, `cargo clippy --workspace` and
+`cargo test --workspace`. Nothing is published, signed or distributed from
+here yet — the desktop app is built by hand (`npm run build`), and in practice
+that means the operator's macOS or Windows laptop.
+
+Two consequences for triaging security alerts against `Cargo.lock`:
+
+- **`Cargo.lock` is platform-independent; the compiled graph is not.** The
+  lockfile stores the union of every target's resolution, so scanners flag
+  crates that are never built here. The Tauri GTK/WebKitGTK stack is the usual
+  source: `glib`, `gtk`, `atk`, `gdk`, `gio`, `pango`, `soup3`, `webkit2gtk`.
+  Check before acting, from the repo root — and note the `--workspace`, because
+  the root `Cargo.toml` is both `[workspace]` and `[package]`, so a bare
+  `cargo tree -i` only sees the root package:
+
+  ```bash
+  cargo tree -i glib --workspace --target aarch64-apple-darwin    --edges normal
+  cargo tree -i glib --workspace --target x86_64-pc-windows-msvc  --edges normal
+  cargo tree -i glib --workspace --target x86_64-unknown-linux-gnu --edges normal
+  ```
+
+  `warning: nothing to print.` means the crate is absent on that target.
+
+- **The headless relay is not where the GUI dependencies live.** The part that
+  behaves like a server — the `sundaytranslate-relay` binary and `relay_core`
+  — resolves *no* GTK stack on any target, Linux included. The only path to it
+  is `sundaytranslate-relay-app` (`src-tauri/`), the desktop shell, on Linux
+  targets only. So a Linux-only advisory in that stack does not describe the
+  relay's network-facing surface.
+
+Worked example — GHSA-wrw7-89jp-8q8g (`glib` 0.18.5, unsoundness in
+`VariantStrIter`'s iterator impls), dismissed 2026-08-30: absent on
+`aarch64-apple-darwin` and `x86_64-pc-windows-msvc`, present only on
+`x86_64-unknown-linux-gnu` via `gtk 0.18.2 ← tauri 2.11.5`, and unfixable
+anyway because `gtk 0.18.2` requires `glib = "^0.18"` (`cargo update -p glib`
+locks 0 packages). It is compiled exactly once — in the `ubuntu-latest` CI job
+— and that output is never shipped.
+
+**The caveat, stated plainly:** `src-tauri/tauri.conf.json` sets
+`"targets": "all"`, so `tauri build` on a Linux box *would* emit deb/AppImage
+and link the GTK stack for real. Nothing automates that today, which is the
+only reason the reasoning above holds. **If a Linux build or a release
+workflow is ever added, re-triage the whole GTK stack as shipped code.**
+
 ## Rig-test (the real verification — needs 2 phones on one wifi)
 1. Fetch mediamtx; start a SundayTranslate session; run the relay with that
    session's id/secret.
