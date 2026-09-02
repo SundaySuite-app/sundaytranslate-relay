@@ -23,7 +23,7 @@ jobs:
             libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       # Pinned: the runner's preinstalled Rust floats, and with `-D warnings`
       # any newly-added clippy lint turns main red on its own. Bump deliberately.
-      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: dtolnay/rust-toolchain@1.100.0
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
