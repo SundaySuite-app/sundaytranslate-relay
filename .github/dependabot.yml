@@ -24,3 +24,9 @@ updates:
     groups:
       actions-all:
         patterns: ["*"]
+    ignore:
+      # Rust-versjonen står i selve action-referansen
+      # (`dtolnay/rust-toolchain@1.98.0`) og løftes for hånd i rammeverk-rundene,
+      # sammen med de andre Tauri-repoene. Action-repoet har tagger langt forbi
+      # Rust-versjoner som finnes — #13 foreslo 1.120.0, som ikke kan installeres.
+      - dependency-name: "dtolnay/rust-toolchain"
