@@ -8,7 +8,7 @@
 //! cert+key for that host. Audio still flows entirely on the LAN; only this
 //! one-time control call needs internet.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
