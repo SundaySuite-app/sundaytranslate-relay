@@ -1,6 +1,6 @@
 //! Spawn mediamtx and keep it alive (restart on crash) until shutdown.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::path::Path;
 use std::process::ExitStatus;
 use std::time::{Duration, Instant};

@@ -13,7 +13,7 @@
 //! across machines — which is what the old `stable_slug` comment promised all
 //! along.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::path::Path;
 
 /// File under the relay data dir holding this installation's slug.

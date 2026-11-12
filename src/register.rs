@@ -5,7 +5,7 @@
 //! resolve `session.localRelayUrl` and prefer the WHEP path; 4G listeners fall
 //! back to Cloudflare. Passing `relay_url: None` clears it (relay shutting down).
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use std::time::Duration;
 

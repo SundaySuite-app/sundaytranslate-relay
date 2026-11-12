@@ -1,7 +1,7 @@
 //! Detect the machine's LAN IPv4 — the address phones on the same wifi reach us
 //! at, and the value we register in DNS (`<slug>.local.sundaysuite.app → this`).
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::net::Ipv4Addr;
 
 /// Best-effort primary LAN IPv4. Returns an error on an IPv6-only / link-down
